@@ -1,0 +1,49 @@
+=== Article ===
+Title: Trump threatens to prosecute political opponents if he returns to office
+Source: The Washington Post
+URL: https://www.washingtonpost.com/politics/2024/05/01/trump-prosecute-political-opponents/
+Date: 2024-05-01
+Score: 9.2
+Justification: Trump's explicit threat to use the Justice Department against political opponents represents a severe threat to democratic norms and judicial independence. This rhetoric directly undermines the rule of law and democratic principles of fair prosecution.
+Analysis Date: 2024-05-02
+=== End ===
+
+=== Article ===
+Title: Trump calls for "termination" of constitutional rules over election
+Source: CBS News
+URL: https://www.cbsnews.com/news/trump-calls-for-termination-of-constitutional-rules-over-election/
+Date: 2024-03-14
+Score: 8.7
+Justification: Calling for the termination of constitutional provisions represents an extreme authoritarian position that directly attacks the foundational legal framework of American democracy and suggests a willingness to discard democratic norms.
+Analysis Date: 2024-03-15
+=== End ===
+
+=== Article ===
+Title: Trump Says His Political Enemies Will Be "Dealt With"
+Source: The Atlantic
+URL: https://www.theatlantic.com/politics/archive/2024/04/trump-political-enemies/674987/
+Date: 2024-04-13
+Score: 7.8
+Justification: The rhetoric implying retribution against political opponents represents a significant authoritarian tendency. Such language creates a chilling effect on political opposition and free speech, core elements of democratic systems.
+Analysis Date: 2024-04-14
+=== End ===
+
+=== Article ===
+Title: Trump claims "absolute right" to pardon himself
+Source: Reuters
+URL: https://www.reuters.com/politics/trump-pardon-powers-2024-03-29/
+Date: 2024-03-29
+Score: 7.5
+Justification: Claiming absolute pardon power, especially for oneself, reflects a concerning view of executive authority that places the president above accountability. This position fundamentally challenges checks and balances within democratic institutions.
+Analysis Date: 2024-03-30
+=== End ===
+
+=== Article ===
+Title: Trump vows to fire civil servants and replace with loyalists
+Source: Politico
+URL: https://www.politico.com/news/2024/04/22/trump-civil-service-loyalists-00147923
+Date: 2024-04-22
+Score: 8.3
+Justification: Replacing career civil servants with political loyalists undermines the professional, non-partisan nature of government institutions. This represents a concerning move toward politicizing normally independent government functions.
+Analysis Date: 2024-04-23
+=== End ===

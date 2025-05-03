@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Índice de Ditador - Monitorando Tendências Autoritárias</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-dark: #9b0000;  /* Dark red */
+      --primary: #c62828;       /* Red */
+      --primary-light: #ef5350; /* Light red */
+      --secondary: #002171;     /* Dark blue */
+      --secondary-light: #0d47a1; /* Blue */
+      --text-light: #f5f5f5;
+      --text-dark: #212121;
+      --background: #121212;
+      --card-bg: #1e1e1e;
+      --card-border: #333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: var(--background);
+      color: var(--text-light);
+      line-height: 1.6;
+    }
+
+    header {
+      background-color: var(--primary-dark);
+      padding: 2rem 0;
+      text-align: center;
+      box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    h1, h2, h3 {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 900;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+
+    @media (min-width: 768px) {
+      .dashboard {
+        grid-template-columns: 350px 1fr;
+      }
+    }
+
+    .index-card {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+      text-align: center;
+    }
+
+    .index-value {
+      font-size: 4rem;
+      font-weight: 900;
+      margin: 1rem 0;
+      color: var(--primary-light);
+    }
+
+    .index-scale {
+      width: 100%;
+      height: 30px;
+      background: linear-gradient(to right, #1b5e20, #fdd835, #b71c1c);
+      border-radius: 15px;
+      position: relative;
+      margin: 1rem 0;
+    }
+
+    .index-pointer {
+      position: absolute;
+      width: 5px;
+      height: 40px;
+      background-color: white;
+      top: -5px;
+      transition: left 1s ease-in-out;
+    }
+
+    .index-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    .index-description {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #ccc;
+    }
+
+    .level-indicator {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-weight: bold;
+      margin: 1rem 0;
+    }
+
+    .news-section {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+    }
+
+    .news-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .refresh-btn {
+      background-color: var(--secondary-light);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.3s;
+    }
+
+    .refresh-btn:hover {
+      background-color: var(--secondary);
+    }
+
+    .news-list {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .news-card {
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+      padding: 1rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      border-left: 5px solid var(--primary);
+    }
+
+    .news-meta {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-bottom: 0.5rem;
+    }
+
+    .news-title {
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .news-title a {
+      color: var(--text-light);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .news-title a:hover {
+      color: var(--primary-light);
+    }
+
+    .news-summary {
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      color: #ddd;
+    }
+
+    .news-analysis {
+      font-style: italic;
+      color: #bbb;
+      font-size: 0.85rem;
+      border-top: 1px solid var(--card-border);
+      padding-top: 0.75rem;
+      margin-top: 0.75rem;
+    }
+
+    .news-score {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .score-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+    }
+
+    .score-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: #aaa;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #aaa;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: var(--primary);
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      margin-top: 3rem;
+      background-color: var(--card-bg);
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+
+    .methodology {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin: 2rem auto;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+      max-width: 800px;
+    }
+
+    .methodology h2 {
+      margin-bottom: 1rem;
+      color: var(--primary-light);
+    }
+
+    .criteria-list {
+      list-style-position: inside;
+      margin: 1rem 0;
+    }
+
+    .criteria-list li {
+      margin-bottom: 0.5rem;
+    }
+
+    .api-settings {
+      background-color: var(--card-bg);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin: 2rem auto;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+      max-width: 800px;
+    }
+
+    .api-form {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .form-group {
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    input {
+      padding: 0.75rem;
+      border-radius: 5px;
+      border: 1px solid var(--card-border);
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-light);
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: var(--primary-dark);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Índice de Ditador</h1>
+      <p>Monitorando e analisando tendências autoritárias nos EUA</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="dashboard">
+      <div class="index-card">
+        <h2>Índice Atual</h2>
+        <div class="index-value" id="index-value">0.0</div>
+        <div class="level-indicator" id="level-indicator">Calculando...</div>
+        <div class="index-scale">
+          <div class="index-pointer" id="index-pointer"></div>
+        </div>
+        <div class="index-labels">
+          <span>0</span>
+          <span>5</span>
+          <span>10</span>
+        </div>
+        <div class="index-description">
+          <p>O Índice de Ditador mede o nível de tendências autoritárias com base em notícias recentes, atribuindo uma pontuação de 0 (democrático) a 10 (autoritário).</p>
+        </div>
+      </div>
+
+      <div class="news-section">
+        <div class="news-header">
+          <h2>Notícias Analisadas</h2>
+          <button class="refresh-btn" id="refresh-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+            Atualizar Notícias
+          </button>
+        </div>
+
+        <div id="news-loading" class="loading">
+          <div class="spinner"></div>
+          <p>Carregando notícias...</p>
+        </div>
+
+        <div id="news-list" class="news-list hidden"></div>
+      </div>
+    </div>
+
+    <div class="methodology">
+      <h2>Metodologia</h2>
+      <p>O Índice de Ditador avalia notícias recentes sobre Donald Trump para identificar possíveis tendências autoritárias usando análise automatizada baseada em IA. Cada notícia recebe uma pontuação de 0 a 10, e a média dessas pontuações constitui o índice geral.</p>
+
+      <h3>Critérios de Avaliação:</h3>
+      <ul class="criteria-list">
+        <li>Retórica que ataca instituições democráticas</li>
+        <li>Ameaças à liberdade de imprensa ou oponentes políticos</li>
+        <li>Abuso de poder executivo</li>
+        <li>Tentativas de minar a independência judicial</li>
+        <li>Desrespeito às normas e processos democráticos</li>
+      </ul>
+
+      <p>Os resultados são atualizados regularmente à medida que novas notícias são publicadas e analisadas.</p>
+    </div>
+
+    <div class="api-settings" id="api-settings">
+      <h2>Configurações da API</h2>
+      <p>Para utilizar o crawler de notícias, você precisa fornecer uma chave da API OpenAI.</p>
+
+      <form class="api-form" id="api-form">
+        <div class="form-group">
+          <label for="api-key">Chave da API OpenAI:</label>
+          <input type="password" id="api-key" placeholder="sk-..." required>
+          <small style="color: #aaa;">Sua chave é armazenada apenas localmente no seu navegador.</small>
+        </div>
+
+        <button type="submit">Salvar Configurações</button>
+      </form>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>Índice de Ditador © 2025 - Monitorando tendências autoritárias com base em análise de notícias.</p>
+      <p>Esta é uma ferramenta de análise política e não constitui aconselhamento legal ou político.</p>
+    </div>
+  </footer>
+
+  <script>
+    // DOM Elements
+    const indexValue = document.getElementById('index-value');
+    const indexPointer = document.getElementById('index-pointer');
+    const levelIndicator = document.getElementById('level-indicator');
+    const newsList = document.getElementById('news-list');
+    const newsLoading = document.getElementById('news-loading');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const apiForm = document.getElementById('api-form');
+    const apiKeyInput = document.getElementById('api-key');
+
+    // Load API key from localStorage
+    document.addEventListener('DOMContentLoaded', function() {
+      const storedApiKey = localStorage.getItem('openai_api_key');
+      if (storedApiKey) {
+        apiKeyInput.value = storedApiKey;
+      }
+
+      // Load initial data
+      fetchCurrentIndex();
+    });
+
+    // Save API key
+    apiForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const apiKey = apiKeyInput.value.trim();
+
+      if (apiKey) {
+        localStorage.setItem('openai_api_key', apiKey);
+        alert('Configurações salvas com sucesso!');
+      }
+    });
+
+    // Refresh news button
+    refreshBtn.addEventListener('click', async function() {
+      await crawlNews();
+      fetchCurrentIndex();
+    });
+
+    // Update index display
+    function updateIndexDisplay(score) {
+      indexValue.textContent = score;
+
+      // Update pointer position (0-10 scale to 0-100%)
+      const position = (score / 10) * 100;
+      indexPointer.style.left = `${position}%`;
+
+      // Update level indicator
+      let level, color;
+
+      if (score < 3) {
+        level = 'BAIXO';
+        color = '#4caf50';
+      } else if (score < 6) {
+        level = 'MODERADO';
+        color = '#ffc107';
+      } else if (score < 8) {
+        level = 'ALTO';
+        color = '#ff9800';
+      } else {
+        level = 'EXTREMO';
+        color = '#f44336';
+      }
+
+      levelIndicator.textContent = `NÍVEL ${level}`;
+      levelIndicator.style.backgroundColor = color;
+    }
+
+    // Fetch current index and news
+    async function fetchCurrentIndex() {
+      try {
+        newsList.classList.add('hidden');
+        newsLoading.classList.remove('hidden');
+
+        const response = await fetch('/get_index');
+        const data = await response.json();
+
+        // Update index
+        updateIndexDisplay(data.index_score);
+
+        // Display news
+        renderNewsList(data.articles);
+
+        newsLoading.classList.add('hidden');
+        newsList.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error fetching index:', error);
+        newsLoading.innerHTML = `<p>Erro ao carregar dados: ${error.message}</p>`;
+      }
+    }
+
+    // Crawl for new news
+    async function crawlNews() {
+      try {
+        const apiKey = localStorage.getItem('openai_api_key');
+        if (!apiKey) {
+          alert('Por favor, configure sua chave da API OpenAI primeiro.');
+          return;
+        }
+
+        newsList.classList.add('hidden');
+        newsLoading.classList.remove('hidden');
+        newsLoading.innerHTML = `
+          <div class="spinner"></div>
+          <p>Buscando notícias recentes...</p>
+        `;
+
+        const response = await fetch('/crawl_news', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            apiKey: apiKey
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Update index
+        updateIndexDisplay(data.index_score);
+
+        // Display news
+        renderNewsList(data.articles);
+
+        newsLoading.classList.add('hidden');
+        newsList.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error crawling news:', error);
+        newsLoading.innerHTML = `<p>Erro ao buscar notícias: ${error.message}</p>`;
+      }
+    }
+
+    // Render news list
+    function renderNewsList(articles) {
+      if (!articles || articles.length === 0) {
+        newsList.innerHTML = '<p>Nenhuma notícia encontrada. Tente atualizar.</p>';
+        return;
+      }
+
+      newsList.innerHTML = articles.map(article => {
+        // Color based on score
+        let scoreBg;
+        if (article.score < 3) {
+          scoreBg = '#4caf50';
+        } else if (article.score < 6) {
+          scoreBg = '#ffc107';
+        } else if (article.score < 8) {
+          scoreBg = '#ff9800';
+        } else {
+          scoreBg = '#f44336';
+        }
+
+        return `
+          <div class="news-card">
+            <div class="news-content">
+              <div class="news-meta">
+                <span>${article.source}</span>
+                <span>${article.date}</span>
+              </div>
+              <h3 class="news-title">
+                <a href="${article.url}" target="_blank">${article.title}</a>
+              </h3>
+              <p class="news-analysis">${article.justification}</p>
+            </div>
+            <div class="news-score">
+              <div class="score-value" style="color: ${scoreBg}">${article.score}</div>
+              <div class="score-label">ÍNDICE</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
