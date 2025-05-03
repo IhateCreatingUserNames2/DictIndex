@@ -6,30 +6,87 @@ import os
 import json
 import datetime
 import re
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from bson import ObjectId
 
+# Load environment variables
+load_dotenv()
 
-# Read database/knowledge from files
-def load_database():
-    database_content = ""
-    database_file = "codebase.txt"
-
-    if os.path.exists(database_file):
-        try:
-            with open(database_file, 'r', encoding='utf-8') as f:
-                database_content = f.read()
-        except Exception as e:
-            print(f"Error reading {database_file}: {str(e)}")
-
-    return database_content
-
-
-# Initialize variables
-DATABASE = load_database()
+# MongoDB connection string
+MONGODB_URL = os.getenv("MONGODB_URL",
+                        "mongodb+srv://username:password@cluster.mongodb.net/indice_ditador?retryWrites=true&w=majority")
 DEFAULT_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_MODEL = "gpt-4o-search-preview"
 
+# Initialize FastAPI
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# PyObjectId class for handling MongoDB ObjectIds
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError("Invalid objectid")
+        return ObjectId(v)
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type="string")
+
+
+# Pydantic models
+class ArticleModel(BaseModel):
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    title: str
+    source: str
+    url: str
+    date: str
+    score: float
+    justification: str
+    analysis_date: str
+
+    class Config:
+        allow_population_by_field_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+
+# Database connection
+client = None
+db = None
+
+
+@app.on_event("startup")
+async def startup_db_client():
+    global client, db
+    client = AsyncIOMotorClient(MONGODB_URL)
+    db = client.indice_ditador
+
+    # Ensure collection and indexes exist
+    await db.articles.create_index("analysis_date")
+
+    # Test connection
+    try:
+        await client.admin.command('ping')
+        print("Connected to MongoDB!")
+    except Exception as e:
+        print(f"Error connecting to MongoDB: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    global client
+    if client:
+        client.close()
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -101,21 +158,24 @@ async def crawl_news(request: Request):
                 # Analyze article for authoritarianism
                 analysis = await analyze_article(article, api_key)
                 if analysis:
-                    analyzed_articles.append({
+                    article_data = {
                         "title": article.get("title"),
                         "source": article.get("source"),
                         "url": article.get("url"),
                         "date": article.get("date"),
                         "summary": article.get("summary"),
-                        "authoritarianism_score": analysis.get("score"),
-                        "justification": analysis.get("justification")
-                    })
+                        "score": float(analysis.get("score")),
+                        "justification": analysis.get("justification"),
+                        "analysis_date": datetime.datetime.now().strftime("%Y-%m-%d")
+                    }
 
-                    # Save to database
-                    await save_to_database(article, analysis)
+                    analyzed_articles.append(article_data)
+
+                    # Save to MongoDB
+                    await db.articles.insert_one(article_data)
 
             # Calculate current index
-            index_score = calculate_index()
+            index_score = await calculate_index()
 
             return JSONResponse({
                 "success": True,
@@ -204,48 +264,15 @@ async def analyze_article(article, api_key):
         return None
 
 
-async def save_to_database(article, analysis):
-    """Save analyzed article to database"""
-    global DATABASE
-
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
-
-    entry = f"""
-=== Article ===
-Title: {article.get('title')}
-Source: {article.get('source')}
-URL: {article.get('url')}
-Date: {article.get('date')}
-Score: {analysis.get('score')}
-Justification: {analysis.get('justification')}
-Analysis Date: {today}
-=== End ===
-"""
-
-    DATABASE += entry
-
-    # Write to file
-    try:
-        with open("codebase.txt", "w", encoding="utf-8") as f:
-            f.write(DATABASE)
-    except Exception as e:
-        print(f"Error writing to database: {str(e)}")
-
-
-def calculate_index():
+async def calculate_index():
     """Calculate the current dictatorship index from database entries"""
-    global DATABASE
 
+    # Get all scores from MongoDB
+    cursor = db.articles.find({}, {"score": 1})
     scores = []
-    score_pattern = r"Score: (\d+(?:\.\d+)?)"
 
-    matches = re.finditer(score_pattern, DATABASE)
-    for match in matches:
-        try:
-            score = float(match.group(1))
-            scores.append(score)
-        except:
-            continue
+    async for doc in cursor:
+        scores.append(doc.get("score", 0))
 
     # Calculate average score if we have any scores
     if scores:
@@ -258,34 +285,32 @@ def calculate_index():
 @app.get("/get_index")
 async def get_index():
     """Get the current dictatorship index and articles"""
-    global DATABASE
 
     # Calculate current index score
-    index_score = calculate_index()
+    index_score = await calculate_index()
 
-    # Extract articles from database
+    # Get articles from MongoDB, sorted by analysis_date descending (most recent first)
+    cursor = db.articles.find().sort("analysis_date", -1).limit(20)
     articles = []
-    article_pattern = r"=== Article ===\s+Title: (.*?)\s+Source: (.*?)\s+URL: (.*?)\s+Date: (.*?)\s+Score: (.*?)\s+Justification: (.*?)\s+Analysis Date: (.*?)\s+=== End ==="
 
-    matches = re.finditer(article_pattern, DATABASE, re.DOTALL)
-    for match in matches:
-        try:
-            articles.append({
-                "title": match.group(1).strip(),
-                "source": match.group(2).strip(),
-                "url": match.group(3).strip(),
-                "date": match.group(4).strip(),
-                "score": float(match.group(5).strip()),
-                "justification": match.group(6).strip(),
-                "analysis_date": match.group(7).strip()
-            })
-        except Exception as e:
-            print(f"Error extracting article: {str(e)}")
-
-    # Sort by analysis date, most recent first
-    articles.sort(key=lambda x: x.get("analysis_date", ""), reverse=True)
+    async for doc in cursor:
+        articles.append({
+            "title": doc.get("title"),
+            "source": doc.get("source"),
+            "url": doc.get("url"),
+            "date": doc.get("date"),
+            "score": float(doc.get("score")),
+            "justification": doc.get("justification"),
+            "analysis_date": doc.get("analysis_date")
+        })
 
     return JSONResponse({
         "index_score": index_score,
-        "articles": articles[:20]  # Return the 20 most recent articles
+        "articles": articles
     })
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
