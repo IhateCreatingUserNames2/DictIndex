@@ -8,8 +8,8 @@ import datetime
 import re
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional, Annotated, Any
 from bson import ObjectId
 
 # Load environment variables
@@ -26,8 +26,8 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# PyObjectId class for handling MongoDB ObjectIds
-class PyObjectId(ObjectId):
+# Custom ObjectId field for Pydantic v2
+class PyObjectId(str):
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
@@ -35,17 +35,17 @@ class PyObjectId(ObjectId):
     @classmethod
     def validate(cls, v):
         if not ObjectId.is_valid(v):
-            raise ValueError("Invalid objectid")
-        return ObjectId(v)
+            raise ValueError("Invalid ObjectId")
+        return str(v)
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_json_schema__(cls, _schema_generator):
+        return {"type": "string"}
 
 
 # Pydantic models
 class ArticleModel(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     title: str
     source: str
     url: str
@@ -54,10 +54,21 @@ class ArticleModel(BaseModel):
     justification: str
     analysis_date: str
 
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_schema_extra={
+            "example": {
+                "title": "Trump threatens to fire officials",
+                "source": "Washington Post",
+                "url": "https://example.com/article",
+                "date": "2025-05-01",
+                "score": 7.5,
+                "justification": "Rhetoric undermining institutions",
+                "analysis_date": "2025-05-02"
+            }
+        }
+    )
 
 
 # Database connection
@@ -68,14 +79,14 @@ db = None
 @app.on_event("startup")
 async def startup_db_client():
     global client, db
-    client = AsyncIOMotorClient(MONGODB_URL)
-    db = client.indice_ditador
-
-    # Ensure collection and indexes exist
-    await db.articles.create_index("analysis_date")
-
-    # Test connection
     try:
+        client = AsyncIOMotorClient(MONGODB_URL)
+        db = client.indice_ditador
+
+        # Ensure collection and indexes exist
+        await db.articles.create_index("analysis_date")
+
+        # Test connection
         await client.admin.command('ping')
         print("Connected to MongoDB!")
     except Exception as e:
@@ -294,6 +305,10 @@ async def get_index():
     articles = []
 
     async for doc in cursor:
+        # Convert ObjectId to string for JSON serialization
+        if "_id" in doc and isinstance(doc["_id"], ObjectId):
+            doc["_id"] = str(doc["_id"])
+
         articles.append({
             "title": doc.get("title"),
             "source": doc.get("source"),
