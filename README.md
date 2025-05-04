@@ -1,5 +1,6 @@
 # Índice de Ditador
 DEMO: https://dictindex.onrender.com/
+####
 Um site que monitora e analisa notícias relacionadas a Donald Trump para avaliar possíveis tendências autoritárias e gerar um índice de autoritarismo com base nessas análises.
 
 ## Descrição
