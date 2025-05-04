@@ -1,5 +1,5 @@
 # Índice de Ditador
-
+DEMO: https://dictindex.onrender.com/
 Um site que monitora e analisa notícias relacionadas a Donald Trump para avaliar possíveis tendências autoritárias e gerar um índice de autoritarismo com base nessas análises.
 
 ## Descrição
@@ -22,7 +22,7 @@ O "Índice de Ditador" é uma ferramenta que:
 
 1. Clone este repositório:
    ```
-   git clone https://github.com/seu-usuario/indice-ditador.git
+   git clone https://github.com/IhateCreatingUserNames2/DictIndex/
    cd indice-ditador
    ```
 
