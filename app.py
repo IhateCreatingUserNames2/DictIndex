@@ -26,8 +26,8 @@ DEFAULT_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Model for search/summary tasks (can be cheaper if available with search)
 # Replace with your actual cheaper model names if they are available and you've tested them
-MODEL_FOR_SEARCH = os.getenv("MODEL_FOR_SEARCH", "gpt-4o-search-preview")
-MODEL_FOR_ANALYSIS = os.getenv("MODEL_FOR_ANALYSIS", "gpt-4o")
+MODEL_FOR_SEARCH = os.getenv("MODEL_FOR_SEARCH", "gpt-4o-mini-search-preview-2025-03-11")
+MODEL_FOR_ANALYSIS = os.getenv("MODEL_FOR_ANALYSIS", "gpt-4.1-nano-2025-04-14")
 
 
 # Number of items to fetch per crawl operation
