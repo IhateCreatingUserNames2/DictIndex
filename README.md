@@ -10,6 +10,9 @@ DEMO: https://dictindex.onrender.com/
 
 --- Adicionado Check contra Duplicate
 
+----- Correções necessarias 
+   --- Twitter na Distopia - Conectar a API. 
+
 ![image](https://github.com/user-attachments/assets/e73d8ffc-24c9-4244-8145-7d26bc317b76)
 ![image](https://github.com/user-attachments/assets/8c8fb28c-fa47-4fbe-8d67-4b45fa8b70f1)
 
