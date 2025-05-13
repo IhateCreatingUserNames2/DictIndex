@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Índice de Ditador - Monitorando Tendências Autoritárias</title>
+  <title>Índices de Tendências: Ditador & Distopia</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -12,6 +12,8 @@
       --primary-light: #ef5350; /* Light red */
       --secondary: #002171;     /* Dark blue */
       --secondary-light: #0d47a1; /* Blue */
+      --dystopia-primary: #004d40; /* Dark Teal for Dystopia */
+      --dystopia-light: #00796b; /* Teal for Dystopia */
       --text-light: #f5f5f5;
       --text-dark: #212121;
       --background: #121212;
@@ -19,576 +21,475 @@
       --card-border: #333;
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Roboto', sans-serif; background-color: var(--background); color: var(--text-light); line-height: 1.6; }
+    header { background-color: var(--primary-dark); padding: 1.5rem 0; text-align: center; box-shadow: 0 3px 5px rgba(0,0,0,0.3); }
+    header h1 { font-size: 2.2rem; }
+    header p { font-size: 0.9rem; color: #ddd; }
 
-    body {
-      font-family: 'Roboto', sans-serif;
-      background-color: var(--background);
-      color: var(--text-light);
-      line-height: 1.6;
-    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+    h1, h2, h3 { font-family: 'Montserrat', sans-serif; font-weight: 900; }
 
-    header {
-      background-color: var(--primary-dark);
-      padding: 2rem 0;
-      text-align: center;
-      box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
-    }
+    .tab-navigation { display: flex; justify-content: center; margin: 2rem 0 1rem; background-color: var(--card-bg); border-radius: 8px; padding: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .tab-btn { padding: 0.75rem 1.5rem; cursor: pointer; background-color: transparent; color: var(--text-light); border: none; font-size: 1rem; font-weight: bold; border-radius: 5px; transition: background-color 0.3s, color 0.3s; }
+    .tab-btn.active { background-color: var(--primary); color: white; }
+    .tab-btn:hover:not(.active) { background-color: rgba(255,255,255,0.1); }
+    .tab-btn#dystopia-tab-btn.active { background-color: var(--dystopia-primary); }
 
-    h1, h2, h3 {
-      font-family: 'Montserrat', sans-serif;
-      font-weight: 900;
-    }
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 1.5rem;
-    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
 
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 2rem;
-      margin: 2rem 0;
-    }
+    .dashboard { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-top: 1rem; }
+    @media (min-width: 992px) { .dashboard { grid-template-columns: 380px 1fr; } }
 
-    @media (min-width: 768px) {
-      .dashboard {
-        grid-template-columns: 350px 1fr;
-      }
-    }
+    .index-card { background-color: var(--card-bg); border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border: 1px solid var(--card-border); text-align: center; }
+    .index-value { font-size: 3.5rem; font-weight: 900; margin: 0.8rem 0; }
+    .index-card#dictator-index-card .index-value { color: var(--primary-light); }
+    .index-card#dystopia-index-card .index-value { color: var(--dystopia-light); }
 
-    .index-card {
-      background-color: var(--card-bg);
-      border-radius: 10px;
-      padding: 1.5rem;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--card-border);
-      text-align: center;
-    }
+    .index-scale { width: 100%; height: 25px; background: linear-gradient(to right, #1b5e20, #fdd835, #b71c1c); border-radius: 12.5px; position: relative; margin: 1rem 0; }
+    .index-pointer { position: absolute; width: 4px; height: 35px; background-color: white; top: -5px; transition: left 0.8s ease-in-out; border-radius: 2px; }
+    .index-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.75rem; color: #aaa; }
+    .index-description { margin-top: 1rem; font-size: 0.85rem; color: #ccc; }
+    .level-indicator { display: inline-block; padding: 0.4rem 0.8rem; border-radius: 20px; font-weight: bold; margin: 0.8rem 0; font-size: 0.9rem; }
 
-    .index-value {
-      font-size: 4rem;
-      font-weight: 900;
-      margin: 1rem 0;
-      color: var(--primary-light);
-    }
+    .content-section { background-color: var(--card-bg); border-radius: 10px; padding: 1.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border: 1px solid var(--card-border); }
+    .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .content-header h2 { font-size: 1.5rem; }
+    
+    .refresh-btn { color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 5px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; transition: background-color 0.3s; font-weight: bold;}
+    .refresh-btn.dictator { background-color: var(--secondary-light); }
+    .refresh-btn.dictator:hover { background-color: var(--secondary); }
+    .refresh-btn.dystopia { background-color: var(--dystopia-light); }
+    .refresh-btn.dystopia:hover { background-color: var(--dystopia-primary); }
 
-    .index-scale {
-      width: 100%;
-      height: 30px;
-      background: linear-gradient(to right, #1b5e20, #fdd835, #b71c1c);
-      border-radius: 15px;
-      position: relative;
-      margin: 1rem 0;
-    }
+    .items-list { display: grid; gap: 1.5rem; }
+    .item-card { background-color: rgba(255,255,255,0.05); border-radius: 5px; padding: 1rem; display: grid; grid-template-columns: 1fr auto; gap: 1rem; }
+    .item-card.dictator-item { border-left: 5px solid var(--primary); }
+    .item-card.dystopia-item { border-left: 5px solid var(--dystopia-light); }
+    
+    .item-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.8rem; color: #aaa; margin-bottom: 0.5rem; }
+    .item-meta span { white-space: nowrap; }
+    .item-title { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .item-title a { color: var(--text-light); text-decoration: none; transition: color 0.3s; }
+    .item-title a:hover { color: var(--primary-light); }
+    .dystopia-item .item-title a:hover { color: var(--dystopia-light); }
 
-    .index-pointer {
-      position: absolute;
-      width: 5px;
-      height: 40px;
-      background-color: white;
-      top: -5px;
-      transition: left 1s ease-in-out;
-    }
+    .item-content-text { font-size: 0.9rem; color: #ddd; margin-bottom: 0.75rem; } /* For Dystopia content_text */
+    .item-summary { font-size: 0.9rem; margin-bottom: 0.75rem; color: #ddd; }
+    .item-analysis { font-style: italic; color: #bbb; font-size: 0.85rem; border-top: 1px solid var(--card-border); padding-top: 0.75rem; margin-top: 0.75rem; }
+    .item-themes { font-size: 0.8rem; color: #999; margin-top: 0.5rem; }
+    .item-themes strong { color: #bbb;}
+    .item-score-display { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .score-value { font-size: 1.8rem; font-weight: bold; }
+    .score-label { font-size: 0.7rem; text-transform: uppercase; color: #aaa; }
 
-    .index-labels {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 5px;
-      font-size: 0.8rem;
-      color: #aaa;
-    }
+    .loading { text-align: center; padding: 3rem; color: #aaa; }
+    .spinner { border: 4px solid rgba(255,255,255,0.1); width: 36px; height: 36px; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+    .spinner.dictator { border-left-color: var(--primary); }
+    .spinner.dystopia { border-left-color: var(--dystopia-light); }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    .index-description {
-      margin-top: 1rem;
-      font-size: 0.9rem;
-      color: #ccc;
-    }
-
-    .level-indicator {
-      display: inline-block;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-weight: bold;
-      margin: 1rem 0;
-    }
-
-    .news-section {
-      background-color: var(--card-bg);
-      border-radius: 10px;
-      padding: 1.5rem;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--card-border);
-    }
-
-    .news-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .refresh-btn {
-      background-color: var(--secondary-light);
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: background 0.3s;
-    }
-
-    .refresh-btn:hover {
-      background-color: var(--secondary);
-    }
-
-    .news-list {
-      display: grid;
-      gap: 1.5rem;
-    }
-
-    .news-card {
-      background-color: rgba(255, 255, 255, 0.05);
-      border-radius: 5px;
-      padding: 1rem;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 1rem;
-      border-left: 5px solid var(--primary);
-    }
-
-    .news-meta {
-      display: flex;
-      gap: 1rem;
-      font-size: 0.8rem;
-      color: #aaa;
-      margin-bottom: 0.5rem;
-    }
-
-    .news-title {
-      font-size: 1.1rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .news-title a {
-      color: var(--text-light);
-      text-decoration: none;
-      transition: color 0.3s;
-    }
-
-    .news-title a:hover {
-      color: var(--primary-light);
-    }
-
-    .news-summary {
-      font-size: 0.9rem;
-      margin-bottom: 0.75rem;
-      color: #ddd;
-    }
-
-    .news-analysis {
-      font-style: italic;
-      color: #bbb;
-      font-size: 0.85rem;
-      border-top: 1px solid var(--card-border);
-      padding-top: 0.75rem;
-      margin-top: 0.75rem;
-    }
-
-    .news-score {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .score-value {
-      font-size: 1.8rem;
-      font-weight: bold;
-    }
-
-    .score-label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      color: #aaa;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 3rem;
-      color: #aaa;
-    }
-
-    .spinner {
-      border: 4px solid rgba(255, 255, 255, 0.1);
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border-left-color: var(--primary);
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    footer {
-      text-align: center;
-      padding: 2rem;
-      margin-top: 3rem;
-      background-color: var(--card-bg);
-      color: #aaa;
-      font-size: 0.85rem;
-    }
-
-    .methodology {
-      background-color: var(--card-bg);
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin: 2rem auto;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--card-border);
-      max-width: 800px;
-    }
-
-    .methodology h2 {
-      margin-bottom: 1rem;
-      color: var(--primary-light);
-    }
-
-    .criteria-list {
-      list-style-position: inside;
-      margin: 1rem 0;
-    }
-
-    .criteria-list li {
-      margin-bottom: 0.5rem;
-    }
-
-    .api-settings {
-      background-color: var(--card-bg);
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin: 2rem auto;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--card-border);
-      max-width: 800px;
-    }
-
-    .api-form {
-      display: grid;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-
-    .form-group {
-      display: grid;
-      gap: 0.5rem;
-    }
-
-    input {
-      padding: 0.75rem;
-      border-radius: 5px;
-      border: 1px solid var(--card-border);
-      background-color: rgba(255, 255, 255, 0.05);
-      color: var(--text-light);
-    }
-
-    button {
-      padding: 0.75rem 1.5rem;
-      background-color: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-
-    button:hover {
-      background-color: var(--primary-dark);
-    }
-
-    .hidden {
-      display: none;
-    }
+    .methodology, .api-settings { background-color: var(--card-bg); border-radius: 10px; padding: 1.5rem; margin: 2rem auto; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border: 1px solid var(--card-border); max-width: 800px;}
+    .methodology h2, .api-settings h2 { margin-bottom: 1rem; color: var(--primary-light); }
+    .criteria-list { list-style-position: inside; margin: 1rem 0; padding-left: 1rem;}
+    .criteria-list li { margin-bottom: 0.5rem; }
+    .api-form { display: grid; gap: 1rem; margin-top: 1rem; }
+    .form-group { display: grid; gap: 0.5rem; }
+    input[type="password"], input[type="text"] { padding: 0.75rem; border-radius: 5px; border: 1px solid var(--card-border); background-color: rgba(255,255,255,0.05); color: var(--text-light); font-size: 1rem;}
+    button[type="submit"] { background-color: var(--primary); }
+    button[type="submit"]:hover { background-color: var(--primary-dark); }
+    .hidden { display: none !important; }
+    footer { text-align: center; padding: 2rem; margin-top: 3rem; background-color: var(--card-bg); color: #aaa; font-size: 0.85rem; }
   </style>
 </head>
 <body>
   <header>
     <div class="container">
-      <h1>Índice de Ditador</h1>
-      <p>Monitorando e analisando tendências autoritárias nos EUA</p>
+      <h1>Índices de Tendências Sociais</h1>
+      <p>Monitorando tendências autoritárias e distópicas com análise de mídia baseada em IA.</p>
     </div>
   </header>
 
-  <main class="container">
-    <div class="dashboard">
-      <div class="index-card">
-        <h2>Índice Atual</h2>
-        <div class="index-value" id="index-value">0.0</div>
-        <div class="level-indicator" id="level-indicator">Calculando...</div>
-        <div class="index-scale">
-          <div class="index-pointer" id="index-pointer"></div>
-        </div>
-        <div class="index-labels">
-          <span>0</span>
-          <span>5</span>
-          <span>10</span>
-        </div>
-        <div class="index-description">
-          <p>O Índice de Ditador mede o nível de tendências autoritárias com base em notícias recentes, atribuindo uma pontuação de 0 (democrático) a 10 (autoritário).</p>
-        </div>
-      </div>
+  <div class="container">
+    <nav class="tab-navigation">
+      <button class="tab-btn active" id="dictator-tab-btn" data-tab="dictator">Índice de Ditador</button>
+      <button class="tab-btn" id="dystopia-tab-btn" data-tab="dystopia">Índice de Distopia</button>
+    </nav>
 
-      <div class="news-section">
-        <div class="news-header">
-          <h2>Notícias Analisadas</h2>
-          <button class="refresh-btn" id="refresh-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-            </svg>
-            Atualizar Notícias
-          </button>
+    <!-- Índice de Ditador Content -->
+    <div id="dictator-content" class="tab-content active">
+      <main class="dashboard">
+        <div class="index-card" id="dictator-index-card">
+          <h2>Índice de Ditador</h2>
+          <div class="index-value" id="dictator-index-value">0.0</div>
+          <div class="level-indicator" id="dictator-level-indicator">Calculando...</div>
+          <div class="index-scale">
+            <div class="index-pointer" id="dictator-index-pointer"></div>
+          </div>
+          <div class="index-labels"><span>0</span><span>5</span><span>10</span></div>
+          <div class="index-description">
+            <p>Mede o nível de tendências autoritárias (0-10) com base em notícias recentes sobre figuras políticas.</p>
+          </div>
         </div>
 
-        <div id="news-loading" class="loading">
-          <div class="spinner"></div>
-          <p>Carregando notícias...</p>
+        <div class="content-section">
+          <div class="content-header">
+            <h2>Notícias Analisadas (Ditador)</h2>
+            <button class="refresh-btn dictator" id="dictator-refresh-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+              Atualizar Notícias
+            </button>
+          </div>
+          <div id="dictator-loading" class="loading"><div class="spinner dictator"></div><p>Carregando notícias...</p></div>
+          <div id="dictator-items-list" class="items-list hidden"></div>
         </div>
-
-        <div id="news-list" class="news-list hidden"></div>
-      </div>
+      </main>
     </div>
 
+    <!-- Índice de Distopia Content -->
+    <div id="dystopia-content" class="tab-content">
+      <main class="dashboard">
+        <div class="index-card" id="dystopia-index-card">
+          <h2>Índice de Distopia</h2>
+          <div class="index-value" id="dystopia-index-value">0.0</div>
+          <div class="level-indicator" id="dystopia-level-indicator">Calculando...</div>
+          <div class="index-scale"> <!-- Can use same scale style, or a different one -->
+            <div class="index-pointer" id="dystopia-index-pointer"></div>
+          </div>
+          <div class="index-labels"><span>0</span><span>5</span><span>10</span></div>
+          <div class="index-description">
+            <p>Mede o nível de tendências distópicas (0-10) refletidas na mídia e em discursos públicos.</p>
+          </div>
+        </div>
+
+        <div class="content-section">
+          <div class="content-header">
+            <h2>Mídia Analisada (Distopia)</h2>
+            <button class="refresh-btn dystopia" id="dystopia-refresh-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+              Atualizar Mídia
+            </button>
+          </div>
+          <div id="dystopia-loading" class="loading"><div class="spinner dystopia"></div><p>Carregando mídia...</p></div>
+          <div id="dystopia-items-list" class="items-list hidden"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Shared Sections -->
     <div class="methodology">
       <h2>Metodologia</h2>
-      <p>O Índice de Ditador avalia notícias recentes sobre Donald Trump para identificar possíveis tendências autoritárias usando análise automatizada baseada em IA. Cada notícia recebe uma pontuação de 0 a 10, e a média dessas pontuações constitui o índice geral.</p>
-
-      <h3>Critérios de Avaliação:</h3>
-      <ul class="criteria-list">
-        <li>Retórica que ataca instituições democráticas</li>
-        <li>Ameaças à liberdade de imprensa ou oponentes políticos</li>
-        <li>Abuso de poder executivo</li>
-        <li>Tentativas de minar a independência judicial</li>
-        <li>Desrespeito às normas e processos democráticos</li>
-      </ul>
-
-      <p>Os resultados são atualizados regularmente à medida que novas notícias são publicadas e analisadas.</p>
+      <p>Os índices avaliam conteúdos de mídia para identificar tendências usando análise automatizada baseada em IA. Cada item recebe uma pontuação de 0 a 10, e a média dessas pontuações constitui o índice geral.</p>
+      <div id="methodology-dictator">
+          <h3>Índice de Ditador - Critérios de Avaliação:</h3>
+          <ul class="criteria-list">
+            <li>Retórica que ataca instituições democráticas</li>
+            <li>Ameaças à liberdade de imprensa ou oponentes políticos</li>
+            <li>Abuso de poder executivo</li>
+            <li>Tentativas de minar a independência judicial</li>
+            <li>Desrespeito às normas e processos democráticos</li>
+          </ul>
+      </div>
+       <div id="methodology-dystopia" style="margin-top: 1.5rem;">
+          <h3>Índice de Distopia - Critérios de Avaliação:</h3>
+          <ul class="criteria-list">
+            <li>Vigilância e Perda de Privacidade</li>
+            <li>Desinformação e Manipulação da Verdade</li>
+            <li>Controle Social e Conformidade Excessiva</li>
+            <li>Supressão da Liberdade de Expressão ou Pensamento</li>
+            <li>Desumanização e Alienação Social</li>
+            <li>Poder Tecnológico Descontrolado ou Antiético</li>
+            <li>Polarização Extrema e Tribalismo Destrutivo</li>
+            <li>Erosão de Direitos Individuais e Processos Democráticos</li>
+          </ul>
+      </div>
+      <p style="margin-top: 1rem;">Os resultados são atualizados regularmente à medida que novos conteúdos são publicados e analisados.</p>
     </div>
 
     <div class="api-settings" id="api-settings">
       <h2>Configurações da API</h2>
-      <p>Para utilizar o crawler de notícias, você precisa fornecer uma chave da API OpenAI.</p>
-
+      <p>Para utilizar as funcionalidades de atualização, você precisa fornecer uma chave da API OpenAI.</p>
       <form class="api-form" id="api-form">
         <div class="form-group">
           <label for="api-key">Chave da API OpenAI:</label>
           <input type="password" id="api-key" placeholder="sk-..." required>
-          <small style="color: #aaa;">Sua chave é armazenada apenas localmente no seu navegador.</small>
+          <small style="color: #aaa;">Sua chave é armazenada apenas localmente no seu navegador e não é enviada para nossos servidores além das requisições diretas à OpenAI.</small>
         </div>
-
-        <button type="submit">Salvar Configurações</button>
+        <button type="submit">Salvar Chave</button>
       </form>
     </div>
-  </main>
+  </div>
 
   <footer>
     <div class="container">
-      <p>Índice de Ditador © 2025 - Monitorando tendências autoritárias com base em análise de notícias.</p>
-      <p>Esta é uma ferramenta de análise política e não constitui aconselhamento legal ou político.</p>
+      <p>Índices de Tendências © 2024-2025 - Ferramenta de análise de mídia.</p>
+      <p>Este é um projeto experimental e não constitui aconselhamento financeiro, legal ou político.</p>
     </div>
   </footer>
 
   <script>
-    // DOM Elements
-    const indexValue = document.getElementById('index-value');
-    const indexPointer = document.getElementById('index-pointer');
-    const levelIndicator = document.getElementById('level-indicator');
-    const newsList = document.getElementById('news-list');
-    const newsLoading = document.getElementById('news-loading');
-    const refreshBtn = document.getElementById('refresh-btn');
+    // --- Configuration & Global State ---
+    let currentVisibleTab = 'dictator'; // 'dictator' or 'dystopia'
+
+    // --- DOM Elements ---
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Dictator Index Elements
+    const dictatorIndexValueEl = document.getElementById('dictator-index-value');
+    const dictatorIndexPointerEl = document.getElementById('dictator-index-pointer');
+    const dictatorLevelIndicatorEl = document.getElementById('dictator-level-indicator');
+    const dictatorItemsListEl = document.getElementById('dictator-items-list');
+    const dictatorLoadingEl = document.getElementById('dictator-loading');
+    const dictatorRefreshBtn = document.getElementById('dictator-refresh-btn');
+
+    // Dystopia Index Elements
+    const dystopiaIndexValueEl = document.getElementById('dystopia-index-value');
+    const dystopiaIndexPointerEl = document.getElementById('dystopia-index-pointer');
+    const dystopiaLevelIndicatorEl = document.getElementById('dystopia-level-indicator');
+    const dystopiaItemsListEl = document.getElementById('dystopia-items-list');
+    const dystopiaLoadingEl = document.getElementById('dystopia-loading');
+    const dystopiaRefreshBtn = document.getElementById('dystopia-refresh-btn');
+    
+    // Shared Elements
     const apiForm = document.getElementById('api-form');
     const apiKeyInput = document.getElementById('api-key');
 
-    // Load API key from localStorage
-    document.addEventListener('DOMContentLoaded', function() {
+    // --- Event Listeners ---
+    document.addEventListener('DOMContentLoaded', () => {
       const storedApiKey = localStorage.getItem('openai_api_key');
-      if (storedApiKey) {
-        apiKeyInput.value = storedApiKey;
-      }
-
-      // Load initial data
-      fetchCurrentIndex();
+      if (storedApiKey) apiKeyInput.value = storedApiKey;
+      
+      setupTabNavigation();
+      loadInitialData(); // Load data for the initially active tab
     });
 
-    // Save API key
-    apiForm.addEventListener('submit', function(e) {
+    apiForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const apiKey = apiKeyInput.value.trim();
-
       if (apiKey) {
         localStorage.setItem('openai_api_key', apiKey);
-        alert('Configurações salvas com sucesso!');
-      }
-    });
-
-    // Refresh news button
-    refreshBtn.addEventListener('click', async function() {
-      await crawlNews();
-      fetchCurrentIndex();
-    });
-
-    // Update index display
-    function updateIndexDisplay(score) {
-      indexValue.textContent = score;
-
-      // Update pointer position (0-10 scale to 0-100%)
-      const position = (score / 10) * 100;
-      indexPointer.style.left = `${position}%`;
-
-      // Update level indicator
-      let level, color;
-
-      if (score < 3) {
-        level = 'BAIXO';
-        color = '#4caf50';
-      } else if (score < 6) {
-        level = 'MODERADO';
-        color = '#ffc107';
-      } else if (score < 8) {
-        level = 'ALTO';
-        color = '#ff9800';
+        alert('Chave da API OpenAI salva com sucesso!');
       } else {
-        level = 'EXTREMO';
-        color = '#f44336';
+        alert('Por favor, insira uma chave da API.');
       }
+    });
 
-      levelIndicator.textContent = `NÍVEL ${level}`;
-      levelIndicator.style.backgroundColor = color;
+    dictatorRefreshBtn.addEventListener('click', async () => {
+      await crawlContent('dictator');
+    });
+
+    dystopiaRefreshBtn.addEventListener('click', async () => {
+      await crawlContent('dystopia');
+    });
+
+    // --- Tab Navigation ---
+    function setupTabNavigation() {
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.dataset.tab;
+                activateTab(tabName);
+            });
+        });
     }
 
-    // Fetch current index and news
-    async function fetchCurrentIndex() {
-      try {
-        newsList.classList.add('hidden');
-        newsLoading.classList.remove('hidden');
-
-        const response = await fetch('/get_index');
-        const data = await response.json();
-
-        // Update index
-        updateIndexDisplay(data.index_score);
-
-        // Display news
-        renderNewsList(data.articles);
-
-        newsLoading.classList.add('hidden');
-        newsList.classList.remove('hidden');
-      } catch (error) {
-        console.error('Error fetching index:', error);
-        newsLoading.innerHTML = `<p>Erro ao carregar dados: ${error.message}</p>`;
-      }
-    }
-
-    // Crawl for new news
-    async function crawlNews() {
-      try {
-        const apiKey = localStorage.getItem('openai_api_key');
-        if (!apiKey) {
-          alert('Por favor, configure sua chave da API OpenAI primeiro.');
-          return;
-        }
-
-        newsList.classList.add('hidden');
-        newsLoading.classList.remove('hidden');
-        newsLoading.innerHTML = `
-          <div class="spinner"></div>
-          <p>Buscando notícias recentes...</p>
-        `;
-
-        const response = await fetch('/crawl_news', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            apiKey: apiKey
-          })
+    function activateTab(tabName) {
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
+        tabButtons.forEach(button => {
+            button.classList.remove('active');
         });
 
+        document.getElementById(`${tabName}-content`).classList.add('active');
+        document.getElementById(`${tabName}-tab-btn`).classList.add('active');
+        currentVisibleTab = tabName;
+        // If data hasn't been loaded for this tab yet, or to refresh, load it
+        // For simplicity, we'll just reload. Can be optimized to load only if empty.
+        if (tabName === 'dictator') fetchDictatorIndexData();
+        else if (tabName === 'dystopia') fetchDystopiaIndexData();
+    }
+    
+    // --- Data Loading & Rendering ---
+    function loadInitialData() {
+        // Load data for the default active tab (dictator)
+        fetchDictatorIndexData();
+        // Optionally pre-load dystopia data too, or wait for tab click
+        // fetchDystopiaIndexData(); 
+    }
+
+    function getScoreColor(score) {
+        if (score < 3) return '#4caf50'; // Green
+        if (score < 5) return '#ffc107'; // Yellow
+        if (score < 7.5) return '#ff9800'; // Orange
+        return '#f44336'; // Red
+    }
+    
+    function updateIndexDisplay(type, score) {
+      const valueEl = type === 'dictator' ? dictatorIndexValueEl : dystopiaIndexValueEl;
+      const pointerEl = type === 'dictator' ? dictatorIndexPointerEl : dystopiaIndexPointerEl;
+      const levelEl = type === 'dictator' ? dictatorLevelIndicatorEl : dystopiaLevelIndicatorEl;
+
+      valueEl.textContent = score.toFixed(1);
+      pointerEl.style.left = `${(score / 10) * 100}%`;
+
+      let levelText, levelColor;
+      if (score < 3) { levelText = 'BAIXO'; levelColor = getScoreColor(2); }
+      else if (score < 5) { levelText = 'MODERADO'; levelColor = getScoreColor(4); }
+      else if (score < 7.5) { levelText = 'ALTO'; levelColor = getScoreColor(6); }
+      else { levelText = 'EXTREMO'; levelColor = getScoreColor(9); }
+      
+      levelEl.textContent = `NÍVEL ${levelText}`;
+      levelEl.style.backgroundColor = levelColor;
+    }
+
+    // Dictator Index Functions
+    async function fetchDictatorIndexData() {
+      dictatorItemsListEl.classList.add('hidden');
+      dictatorLoadingEl.classList.remove('hidden');
+      try {
+        const response = await fetch('/get_index');
+        if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
         const data = await response.json();
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        // Update index
-        updateIndexDisplay(data.index_score);
-
-        // Display news
-        renderNewsList(data.articles);
-
-        newsLoading.classList.add('hidden');
-        newsList.classList.remove('hidden');
+        updateIndexDisplay('dictator', data.index_score);
+        renderDictatorItems(data.articles);
       } catch (error) {
-        console.error('Error crawling news:', error);
-        newsLoading.innerHTML = `<p>Erro ao buscar notícias: ${error.message}</p>`;
+        console.error('Erro ao buscar dados do Índice de Ditador:', error);
+        dictatorLoadingEl.innerHTML = `<p>Erro ao carregar dados: ${error.message}</p>`;
+      } finally {
+        dictatorLoadingEl.classList.add('hidden');
+        dictatorItemsListEl.classList.remove('hidden');
       }
     }
 
-    // Render news list
-    function renderNewsList(articles) {
+    function renderDictatorItems(articles) {
       if (!articles || articles.length === 0) {
-        newsList.innerHTML = '<p>Nenhuma notícia encontrada. Tente atualizar.</p>';
+        dictatorItemsListEl.innerHTML = '<p>Nenhuma notícia analisada encontrada. Tente atualizar.</p>';
+        return;
+      }
+      dictatorItemsListEl.innerHTML = articles.map(article => `
+        <div class="item-card dictator-item">
+          <div class="item-main-content">
+            <div class="item-meta">
+              <span>Fonte: ${article.source || 'N/A'}</span>
+              <span>Data: ${article.date || 'N/A'}</span>
+            </div>
+            <h3 class="item-title">
+              <a href="${article.url}" target="_blank" rel="noopener noreferrer">${article.title || 'Sem título'}</a>
+            </h3>
+            ${article.summary ? `<p class="item-summary"><strong>Resumo:</strong> ${article.summary}</p>` : ''}
+            <p class="item-analysis"><strong>Análise:</strong> ${article.justification || 'N/A'}</p>
+          </div>
+          <div class="item-score-display">
+            <div class="score-value" style="color: ${getScoreColor(article.score)}">${article.score.toFixed(1)}</div>
+            <div class="score-label">Índice</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Dystopia Index Functions
+    async function fetchDystopiaIndexData() {
+      dystopiaItemsListEl.classList.add('hidden');
+      dystopiaLoadingEl.classList.remove('hidden');
+      try {
+        const response = await fetch('/get_dystopia_index_data');
+        if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+        const data = await response.json();
+        updateIndexDisplay('dystopia', data.dystopia_index_score);
+        renderDystopiaItems(data.items);
+      } catch (error) {
+        console.error('Erro ao buscar dados do Índice de Distopia:', error);
+        dystopiaLoadingEl.innerHTML = `<p>Erro ao carregar dados: ${error.message}</p>`;
+      } finally {
+        dystopiaLoadingEl.classList.add('hidden');
+        dystopiaItemsListEl.classList.remove('hidden');
+      }
+    }
+
+    function renderDystopiaItems(items) {
+      if (!items || items.length === 0) {
+        dystopiaItemsListEl.innerHTML = '<p>Nenhum item de mídia analisado encontrado. Tente atualizar.</p>';
+        return;
+      }
+      dystopiaItemsListEl.innerHTML = items.map(item => `
+        <div class="item-card dystopia-item">
+          <div class="item-main-content">
+            <div class="item-meta">
+              <span>Plataforma: ${item.platform || 'N/A'}</span>
+              ${item.source_name ? `<span>Fonte/Usuário: ${item.source_name}</span>` : ''}
+              ${item.publication_date ? `<span>Data: ${item.publication_date}</span>` : ''}
+            </div>
+            ${item.title ? `<h3 class="item-title"><a href="${item.content_identifier.startsWith('http') ? item.content_identifier : '#'}" target="_blank" rel="noopener noreferrer">${item.title}</a></h3>` : ''}
+            <p class="item-content-text">${item.content_text || 'Conteúdo não disponível.'}</p>
+            <p class="item-analysis"><strong>Análise:</strong> ${item.justification || 'N/A'}</p>
+            ${item.themes_detected && item.themes_detected.length > 0 ? `<p class="item-themes"><strong>Temas:</strong> ${item.themes_detected.join(', ')}</p>` : ''}
+          </div>
+          <div class="item-score-display">
+            <div class="score-value" style="color: ${getScoreColor(item.dystopian_score)}">${item.dystopian_score.toFixed(1)}</div>
+            <div class="score-label">Índice</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // --- Content Crawling ---
+    async function crawlContent(type) { // type is 'dictator' or 'dystopia'
+      const apiKey = localStorage.getItem('openai_api_key');
+      if (!apiKey) {
+        alert('Por favor, configure sua chave da API OpenAI na seção "Configurações da API".');
         return;
       }
 
-      newsList.innerHTML = articles.map(article => {
-        // Color based on score
-        let scoreBg;
-        if (article.score < 3) {
-          scoreBg = '#4caf50';
-        } else if (article.score < 6) {
-          scoreBg = '#ffc107';
-        } else if (article.score < 8) {
-          scoreBg = '#ff9800';
-        } else {
-          scoreBg = '#f44336';
+      const loadingEl = type === 'dictator' ? dictatorLoadingEl : dystopiaLoadingEl;
+      const itemsListEl = type === 'dictator' ? dictatorItemsListEl : dystopiaItemsListEl;
+      const endpoint = type === 'dictator' ? '/crawl_news' : '/crawl_dystopian_content';
+      const spinnerClass = type === 'dictator' ? 'spinner dictator' : 'spinner dystopia';
+      const loadingText = type === 'dictator' ? 'Buscando e analisando notícias...' : 'Buscando e analisando mídias...';
+
+      itemsListEl.classList.add('hidden');
+      loadingEl.classList.remove('hidden');
+      loadingEl.innerHTML = `<div class="${spinnerClass}"></div><p>${loadingText}</p>`;
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: apiKey })
+        });
+        
+        const responseData = await response.json();
+
+        if (!response.ok || responseData.error) {
+          throw new Error(responseData.error || responseData.details || `Erro HTTP: ${response.status}`);
+        }
+        
+        alert(responseData.message || "Atualização concluída!");
+
+        // Refresh the data for the current tab
+        if (type === 'dictator') {
+            updateIndexDisplay('dictator', responseData.index_score);
+            // The crawl_news response contains 'articles_processed_this_crawl'
+            // It's better to fetch all articles again to see the full context, or append if preferred
+            await fetchDictatorIndexData(); 
+        } else if (type === 'dystopia') {
+            updateIndexDisplay('dystopia', responseData.dystopia_index_score);
+            await fetchDystopiaIndexData();
         }
 
-        return `
-          <div class="news-card">
-            <div class="news-content">
-              <div class="news-meta">
-                <span>${article.source}</span>
-                <span>${article.date}</span>
-              </div>
-              <h3 class="news-title">
-                <a href="${article.url}" target="_blank">${article.title}</a>
-              </h3>
-              <p class="news-analysis">${article.justification}</p>
-            </div>
-            <div class="news-score">
-              <div class="score-value" style="color: ${scoreBg}">${article.score}</div>
-              <div class="score-label">ÍNDICE</div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      } catch (error) {
+        console.error(`Erro ao atualizar conteúdo (${type}):`, error);
+        loadingEl.innerHTML = `<p>Erro ao atualizar: ${error.message}</p>`;
+        // Show list again even if error, might contain old data or error message
+        setTimeout(() => { // Give a moment for user to see error
+            if(type === 'dictator') fetchDictatorIndexData();
+            else fetchDystopiaIndexData();
+        }, 2000);
+      } finally {
+        // Loading and list visibility is handled by the fetch functions now
+      }
     }
   </script>
 </body>
