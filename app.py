@@ -331,7 +331,7 @@ async def crawl_dystopian_content_endpoint(request: Request):
     async with httpx.AsyncClient() as http_client:
         # 1. Fetch News Articles for Dystopian Themes
         news_prompt_content = f"Find {NUM_NEWS_DYSTOPIAN} recent news articles (last 7 days) discussing dystopian themes like mass surveillance, disinformation, loss of privacy, extreme social control, or unchecked AI. For each, provide title, source, URL, publication date (YYYY-MM-DD), and a brief summary. Format as a JSON object with a single key 'news_articles' which contains an array of these article objects."
-        news_payload = {"model": MODEL_FOR_SEARCH, "messages": [{"role": "user", "content": news_prompt_content}], "response_format": {"type": "json_object"}}
+        news_payload = {"model": MODEL_FOR_SEARCH, "messages": [{"role": "user", "content": news_prompt_content}] }
         
         try:
             news_search_data = await _make_openai_call(http_client, api_key, news_payload, "Dystopian News Search")
@@ -379,7 +379,7 @@ async def crawl_dystopian_content_endpoint(request: Request):
 
         # 2. Simulate Fetching "Tweets" for Dystopian Themes
         sim_tweets_prompt_content = f"Generate {NUM_SIM_TWEETS_DYSTOPIAN} plausible, recent-sounding (last 7 days) example social media posts (like tweets) expressing concern or observations about dystopian societal trends (e.g., surveillance, AI ethics, censorship). For each, provide 'simulated_user' (string), 'post_text' (string, concise like a tweet), 'simulated_date' (string YYYY-MM-DD). Format as a JSON object with a single key 'simulated_posts' which contains an array of these post objects."
-        sim_tweets_payload = {"model": MODEL_FOR_ANALYSIS, "messages": [{"role": "user", "content": sim_tweets_prompt_content}], "response_format": {"type": "json_object"}}
+        sim_tweets_payload = {"model": MODEL_FOR_ANALYSIS, "messages": [{"role": "user", "content": sim_tweets_prompt_content}] }
         
         try:
             sim_tweets_data = await _make_openai_call(http_client, api_key, sim_tweets_payload, "Simulated Dystopian Posts Generation")
