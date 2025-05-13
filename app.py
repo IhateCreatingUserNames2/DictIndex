@@ -27,7 +27,7 @@ MONGODB_URL = os.getenv("MONGODB_URL")
 # *** THIS IS THE CRUCIAL PART: Define your database name here ***
 # This MUST match the database name you intend to use on MongoDB Atlas.
 # Based on your logs, it seemed to be 'indice_ditador_db'. Please verify.
-ACTUAL_DATABASE_NAME_TO_USE = "indice_ditador_db"  # <<<< REPLACE WITH YOUR EXACT DATABASE NAME
+ACTUAL_DATABASE_NAME_TO_USE = "indice_ditador"  # <<<< REPLACE WITH YOUR EXACT DATABASE NAME
 
 DEFAULT_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
