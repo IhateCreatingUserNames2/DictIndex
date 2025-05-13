@@ -1,3 +1,5 @@
+# app.py
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,380 +11,425 @@ import re
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ConfigDict, ValidationError
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from bson import ObjectId
+import logging
 
-# Load environment variables
+# --- Configuration ---
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# MongoDB connection string
-MONGODB_URL = os.getenv("MONGODB_URL",
-                        "mongodb+srv://username:password@cluster.mongodb.net/indice_ditador?retryWrites=true&w=majority")
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/indice_ditador_db") # Default to local if not set
 DEFAULT_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DEFAULT_MODEL_SEARCH = "gpt-4o-search-preview" # Model for news searching
-DEFAULT_MODEL_ANALYSIS = "gpt-4o" # Model for analysis
 
-# Initialize FastAPI
-app = FastAPI(title="Índice de Ditador API")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Model for search/summary tasks (can be cheaper if available with search)
+MODEL_FOR_SEARCH = "gpt-4o-search-preview" # Or "gpt-4o" if using a generic search prompt
+# Model for detailed analysis (prioritize quality)
+MODEL_FOR_ANALYSIS = "gpt-4o"
+
+# Number of items to fetch per crawl operation
+NUM_ARTICLES_TO_FETCH_DITADOR = 3
+NUM_NEWS_DYSTOPIAN = 2 # Number of news articles for dystopian index
+NUM_SIM_TWEETS_DYSTOPIAN = 2 # Number of simulated tweets for dystopian index
+
+# Max tokens for analysis completion to control cost
+MAX_TOKENS_FOR_ANALYSIS = 250
+
+# --- FastAPI Initialization ---
+app = FastAPI(title="Índice de Ditador e Distopia API")
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+else:
+    logger.warning("'static' directory not found. Frontend might not load.")
+    os.makedirs("static", exist_ok=True) # Create if missing
+    # Create a placeholder index.html if it's also missing
+    if not os.path.exists("static/index.html"):
+        with open("static/index.html", "w", encoding="utf-8") as f:
+            f.write("<h1>Índice de Ditador & Distopia</h1><p>Placeholder content. Main HTML is missing.</p>")
+        logger.info("Created placeholder 'static/index.html'.")
 
 
-# Custom ObjectId field
+# --- Pydantic Models & Custom Types ---
 class PyObjectId(str):
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v: Any, _handler: Any = None) -> str: # Added _handler for Pydantic v2 compatibility
+    def validate(cls, v: Any, _handler: Any = None) -> str:
         if isinstance(v, ObjectId):
             return str(v)
         if isinstance(v, str):
             if ObjectId.is_valid(v):
                 return v
-            else:
-                raise ValueError(f"'{v}' is not a valid ObjectId string")
+            raise ValueError(f"'{v}' is not a valid ObjectId string")
         raise TypeError(f"ObjectId or valid ObjectId string expected, got {type(v).__name__}")
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema, handler): # Pydantic v2 signature
-        # For Pydantic v2, if you're using __get_validators__ (v1 style), 
-        # this method might not be called or might need the old signature.
-        # schema = handler(core_schema) if handler and core_schema else {}
-        # schema.update(type="string", format="objectid")
-        # return schema
-        # Sticking to user's original simple version if it worked for them:
-        # def __get_pydantic_json_schema__(cls, _schema_generator):
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
         return {"type": "string", "format": "objectid-string"}
 
-
-# Pydantic models
-class ArticleModel(BaseModel):
+class ArticleModel(BaseModel): # For "Índice de Ditador"
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
     title: str
     source: str
     url: str
-    date: str # Consider validating format e.g. YYYY-MM-DD
-    summary: Optional[str] = None # Added summary field
+    date: str
+    summary: Optional[str] = None
     score: float
     justification: str
-    analysis_date: str # Consider validating format e.g. YYYY-MM-DD
+    analysis_date: str
 
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True, # Necessary for PyObjectId if not using CoreSchema
-        json_schema_extra={
-            "example": {
-                "title": "Trump threatens to fire officials",
-                "source": "Washington Post",
-                "url": "https://example.com/article",
-                "date": "2025-05-01",
-                "summary": "A brief summary of the article content.",
-                "score": 7.5,
-                "justification": "Rhetoric undermining institutions",
-                "analysis_date": "2025-05-02"
-            }
-        }
-    )
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
+class DystopianMediaItemModel(BaseModel): # For "Índice de Distopia"
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    platform: str  # Ex: "Notícia Web", "Tweet Simulado"
+    content_identifier: str # Ex: URL for news, generated ID for simulated tweet
+    title: Optional[str] = None # For news articles
+    content_text: str # Main text for analysis (summary for news, tweet text for tweets)
+    source_name: Optional[str] = None # e.g., "New York Times", "Simulated Twitter User"
+    publication_date: Optional[str] = None
+    dystopian_score: float
+    justification: str
+    themes_detected: List[str] = []
+    analysis_date: str
 
-# Database connection
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+# --- Database Connection ---
 client: Optional[AsyncIOMotorClient] = None
 db = None
-
 
 @app.on_event("startup")
 async def startup_db_client():
     global client, db
-    print("Attempting to connect to MongoDB...")
+    logger.info("Attempting to connect to MongoDB...")
     try:
         client = AsyncIOMotorClient(MONGODB_URL)
-        # Test connection by pinging
         await client.admin.command('ping')
-        print("Successfully connected to MongoDB!")
-        db = client.indice_ditador # Use your database name
+        logger.info("Successfully connected to MongoDB!")
+        db = client.get_database() # Gets default DB from URI or you can specify name
 
-        # Ensure 'articles' collection and 'analysis_date' index exist
-        print("Ensuring 'articles' collection and indexes...")
-        if "articles" not in await db.list_collection_names():
-            print("Creating 'articles' collection.")
+        # Collections and Indexes for "Índice de Ditador"
         await db.articles.create_index("analysis_date")
-        await db.articles.create_index("url", unique=True) # Add unique index on URL to enforce uniqueness at DB level
-        print("Indexes ensured on 'articles' collection (analysis_date, url).")
+        await db.articles.create_index("url", unique=True)
+        logger.info("Indexes ensured for 'articles' collection.")
+
+        # Collections and Indexes for "Índice de Distopia"
+        await db.dystopian_media_items.create_index("analysis_date")
+        await db.dystopian_media_items.create_index("content_identifier", unique=True)
+        logger.info("Indexes ensured for 'dystopian_media_items' collection.")
 
     except Exception as e:
-        print(f"Error connecting to MongoDB or ensuring collections/indexes: {e}")
-        # client might be None or partially initialized.
-        # Consider how the app should behave if DB connection fails.
-        # For now, it will proceed, and db operations will fail.
-
+        logger.error(f"Error connecting to MongoDB or ensuring collections/indexes: {e}", exc_info=True)
+        db = None # Ensure db is None if connection fails
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    global client
     if client:
-        print("Closing MongoDB connection.")
+        logger.info("Closing MongoDB connection.")
         client.close()
 
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    # Ensure static/index.html exists
-    if not os.path.exists("static/index.html"):
-        return HTMLResponse(content="<h1>Error: index.html not found</h1><p>Make sure the static/index.html file exists in your project directory.</p>", status_code=500)
-    with open("static/index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
-
-
-@app.post("/crawl_news")
-async def crawl_news(request: Request):
-    """Crawl for recent Trump news, analyze, and store if new."""
-    if db is None:
-        return JSONResponse({"error": "Database not available. Check MongoDB connection."}, status_code=503)
-
-    data = await request.json()
-    api_key = data.get("apiKey") or DEFAULT_OPENAI_API_KEY
-    if not api_key:
-        return JSONResponse({"error": "OpenAI API key is required."}, status_code=400)
-
-    search_query = "recent news about Trump and democratic institutions today"
+# --- Helper Functions ---
+async def _make_openai_call(http_client: httpx.AsyncClient, api_key: str, payload: Dict) -> Dict:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    try:
+        response = await http_client.post(
+            "https://api.openai.com/v1/chat/completions",
+            json=payload,
+            headers=headers,
+            timeout=90.0 # Increased timeout for potentially longer search/generation tasks
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error from OpenAI: {e.response.status_code} - {e.response.text}", exc_info=True)
+        raise
+    except httpx.RequestError as e:
+        logger.error(f"Request error to OpenAI: {e}", exc_info=True)
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in _make_openai_call: {e}", exc_info=True)
+        raise
+
+def _parse_llm_json_output(content: str, default_return: Any = None) -> Any:
+    try:
+        # Attempt to find JSON array or object
+        match = re.search(r'```json\s*([\s\S]*?)\s*```|(\[[\s\S]*\])|({[\s\S]*})', content, re.DOTALL)
+        if match:
+            json_str = match.group(1) or match.group(2) or match.group(3)
+            return json.loads(json_str)
+        return json.loads(content) # Fallback if no explicit markers
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to parse LLM JSON output. Content: {content[:200]}...")
+        return default_return
+
+# --- "Índice de Ditador" Logic ---
+@app.post("/crawl_news") # Existing endpoint for Ditador Index
+async def crawl_news(request: Request):
+    if db is None: return JSONResponse({"error": "Database not available."}, status_code=503)
+    req_data = await request.json()
+    api_key = req_data.get("apiKey") or DEFAULT_OPENAI_API_KEY
+    if not api_key: return JSONResponse({"error": "OpenAI API key is required."}, status_code=400)
 
     search_payload = {
-        "model": DEFAULT_MODEL_SEARCH,
-        "web_search_options": { # This option might be specific to certain OpenAI API versions or models
-            "search_context_size": "medium",
-            "user_location": {"type": "approximate", "approximate": {"country": "US", "city": "Washington", "region": "DC"}}
-        },
-        "messages": [{"role": "user", "content": "Find 3 recent news articles about Donald Trump that might relate to democratic institutions, checks and balances, or authoritarian tendencies. For each article, provide the title, source, publication date, URL, and a brief summary of the content. Format your response as a clean JSON array with fields: title, source, url, date, and summary."}]
+        "model": MODEL_FOR_SEARCH,
+        "messages": [{"role": "user", "content": f"Find {NUM_ARTICLES_TO_FETCH_DITADOR} recent news articles (last 7 days) about Donald Trump that might relate to democratic institutions, checks and balances, or authoritarian tendencies. For each article, provide title, source, URL, publication date (YYYY-MM-DD), and a brief summary. Format your response as a clean JSON array."}],
+        "response_format": {"type": "json_object"} # More reliable if model supports it well for arrays
     }
+    # If response_format {"type": "json_object"} doesn't work well for arrays, remove it and parse manually.
+    # Some models expect json_object to be an object, not an array.
+
+    processed_articles_info = []
+    newly_added_count = 0
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as http_client:
-            response = await http_client.post("https://api.openai.com/v1/chat/completions", json=search_payload, headers=headers)
-        response.raise_for_status() # Raise HTTPError for bad responses (4XX or 5XX)
-        search_results = response.json()
-
-        if not ('choices' in search_results and search_results['choices']):
-            return JSONResponse({"error": "Invalid response from search API", "details": search_results}, status_code=500)
-
-        content = search_results['choices'][0]['message']['content']
-        articles_json_list = []
-        try:
-            # Try to extract JSON array from the response (handles cases where LLM wraps JSON in text)
-            json_match = re.search(r'\[\s*{.*}\s*\]', content, re.DOTALL)
-            if json_match:
-                articles_json_list = json.loads(json_match.group(0))
-            else:
-                articles_json_list = json.loads(content) # Assume content is a direct JSON array
-            if not isinstance(articles_json_list, list): # Ensure it's a list
-                raise ValueError("Parsed content is not a list of articles")
-        except (json.JSONDecodeError, ValueError) as e:
-            return JSONResponse({"error": "Could not parse articles from search results", "details": str(e), "raw_content": content}, status_code=500)
-
-        processed_articles_info = []
-        newly_added_count = 0
-
-        for article_data_from_api in articles_json_list:
-            article_url = article_data_from_api.get("url")
-            if not article_url:
-                print(f"Skipping article due to missing URL: {article_data_from_api.get('title', 'N/A')}")
-                continue
-
-            # 1. Avoid Repetition: Check if article URL already exists
-            existing_article = await db.articles.find_one({"url": article_url})
-            if existing_article:
-                print(f"Article already exists (URL: {article_url}), skipping.")
-                # Optionally, add to a list of "skipped_duplicates" to inform the user
-                continue
-
-            analysis = await analyze_article(article_data_from_api, api_key, http_client)
-            if not analysis or "score" not in analysis or "justification" not in analysis:
-                print(f"Failed to analyze article or analysis incomplete: {article_data_from_api.get('title', 'N/A')}")
-                continue
+        async with httpx.AsyncClient() as http_client:
+            search_results_data = await _make_openai_call(http_client, api_key, search_payload)
             
-            current_analysis_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
-            
-            article_payload = {
-                "title": article_data_from_api.get("title"),
-                "source": article_data_from_api.get("source"),
-                "url": article_url,
-                "date": article_data_from_api.get("date"), # Ensure this is a valid date string
-                "summary": article_data_from_api.get("summary"), # Store summary
-                "score": float(analysis["score"]),
-                "justification": analysis["justification"],
-                "analysis_date": current_analysis_date
-            }
+            content_str = search_results_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+            # Assuming the JSON object contains a key like "articles" which is an array
+            # This depends on how you instruct the LLM or if you directly parse an array response
+            articles_from_api = _parse_llm_json_output(content_str, {}).get("articles", [])
+            if not isinstance(articles_from_api, list):
+                 articles_from_api = _parse_llm_json_output(content_str, []) # try parsing as direct array
 
-            try:
-                article_to_save = ArticleModel(**article_payload)
-            except ValidationError as e:
-                print(f"Data validation error for article '{article_payload.get('title')}': {e}")
-                continue
-            
-            # For insertion, Pydantic model ensures data types.
-            # model_dump by_alias=True will use "_id" if id field is set.
-            # Here, id is None, so it's excluded by exclude_none=True. MongoDB generates _id.
-            db_data = article_to_save.model_dump(by_alias=True, exclude_none=True)
-            
-            try:
-                insert_result = await db.articles.insert_one(db_data)
+            if not articles_from_api:
+                logger.warning("No articles found or failed to parse from LLM search response for Ditador Index.")
+                # Fallback logic or error response might be needed here
+
+            for article_data_api in articles_from_api:
+                url = article_data_api.get("url")
+                if not url or await db.articles.find_one({"url": url}):
+                    logger.info(f"Skipping article (no URL or duplicate): {article_data_api.get('title', 'N/A')}")
+                    continue
+
+                analysis = await _analyze_article_authoritarianism(http_client, api_key, article_data_api)
+                if not analysis: continue
+
+                article_obj = ArticleModel(
+                    title=article_data_api.get("title", "N/A"),
+                    source=article_data_api.get("source", "N/A"),
+                    url=url,
+                    date=article_data_api.get("date", datetime.date.today().isoformat()),
+                    summary=article_data_api.get("summary"),
+                    score=float(analysis["score"]),
+                    justification=analysis["justification"],
+                    analysis_date=datetime.datetime.now(datetime.timezone.utc).isoformat()
+                )
+                insert_result = await db.articles.insert_one(article_obj.model_dump(by_alias=True, exclude_none=True))
                 if insert_result.inserted_id:
                     newly_added_count += 1
-                    # Prepare data for response (can use article_to_save.model_dump() or manually construct)
-                    # Using the validated and structured data
-                    response_article_data = article_to_save.model_dump(exclude_none=True)
-                    response_article_data["id"] = str(insert_result.inserted_id) # Add the new ID as string
-                    processed_articles_info.append(response_article_data)
-                else:
-                    print(f"Failed to insert article: {article_to_save.title}")
-            except Exception as e: # Catches potential duplicate key error if URL unique index is very strict
-                print(f"Error inserting article '{article_to_save.title}' to DB: {e}")
-
-
-        index_score = await calculate_index()
+                    response_article = article_obj.model_dump()
+                    response_article["id"] = str(insert_result.inserted_id)
+                    processed_articles_info.append(response_article)
+        
+        index_score = await calculate_dictator_index()
         return JSONResponse({
-            "success": True,
-            "message": f"Crawl complete. {newly_added_count} new articles added.",
-            "articles_processed_this_crawl": processed_articles_info, # Articles newly added in this run
-            "index_score": index_score
+            "success": True, "message": f"Dictator Index crawl complete. {newly_added_count} new articles added.",
+            "articles_processed_this_crawl": processed_articles_info, "index_score": index_score
         })
-
-    except httpx.HTTPStatusError as e:
-        return JSONResponse({"error": "HTTP error during OpenAI API call", "details": str(e), "request_url": str(e.request.url), "response_content": e.response.text if e.response else "No response content"}, status_code=e.response.status_code if e.response else 500)
-    except httpx.RequestError as e:
-        return JSONResponse({"error": "Request error during OpenAI API call", "details": str(e), "request_url": str(e.request.url)}, status_code=500)
     except Exception as e:
-        print(f"Unexpected error in crawl_news: {str(e)}")
-        return JSONResponse({"error": "An unexpected error occurred", "details": str(e)}, status_code=500)
+        logger.error(f"Error in crawl_news: {e}", exc_info=True)
+        return JSONResponse({"error": "Error processing crawl_news request", "details": str(e)}, status_code=500)
 
-
-async def analyze_article(article_details: dict, api_key: str, http_client: httpx.AsyncClient):
-    """Analyze an article for authoritarian tendencies using OpenAI."""
-    analysis_prompt = f"""
-    You are an expert political analyst specializing in democratic institutions and authoritarianism.
-    Analyze the following news article regarding Donald Trump for signs of authoritarian tendencies:
-
-    Title: {article_details.get('title', 'N/A')}
-    Source: {article_details.get('source', 'N/A')}
-    Date: {article_details.get('date', 'N/A')}
-    Summary: {article_details.get('summary', 'N/A')}
-
-    Rate the article on an authoritarianism scale from 0 to 10, where:
-    - 0 means no authoritarian tendencies whatsoever
-    - 10 means extreme authoritarian behavior that directly threatens democratic institutions
-
-    Criteria to consider:
-    1. Rhetoric attacking democratic institutions
-    2. Threats to press freedom or political opponents
-    3. Abuse of executive power
-    4. Attempts to undermine judicial independence
-    5. Disregard for democratic norms and processes
-
-    Provide your numerical score and a brief justification (2-3 sentences).
-    Format your response as valid JSON with two fields: "score" (number, e.g., 7.5) and "justification" (string).
-    Example: {{"score": 7.5, "justification": "The article details rhetoric undermining judicial independence."}}
-    """
-
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    analysis_payload = {"model": DEFAULT_MODEL_ANALYSIS, "messages": [{"role": "user", "content": analysis_prompt}], "response_format": {"type": "json_object"}} # Request JSON output
-
+async def _analyze_article_authoritarianism(http_client: httpx.AsyncClient, api_key: str, article_details: dict) -> Optional[Dict]:
+    prompt = f"""Analyze the news article for authoritarian tendencies:
+    Title: {article_details.get('title')}
+    Summary: {article_details.get('summary')}
+    Rate on a scale 0-10 (0=none, 10=extreme authoritarianism). Criteria: attacks on institutions, press freedom threats, abuse of power, undermining judiciary, disregard for democratic norms.
+    Respond with JSON: {{"score": <number>, "justification": "<string>"}}"""
+    payload = {"model": MODEL_FOR_ANALYSIS, "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}, "max_tokens": MAX_TOKENS_FOR_ANALYSIS}
+    
     try:
-        response = await http_client.post("https://api.openai.com/v1/chat/completions", json=analysis_payload, headers=headers, timeout=30.0)
-        response.raise_for_status()
-        result = response.json()
-
-        if 'choices' in result and result['choices']:
-            content_str = result['choices'][0]['message']['content']
-            try:
-                # OpenAI with response_format: "json_object" should return valid JSON string directly
-                analysis_json = json.loads(content_str)
-                if isinstance(analysis_json.get("score"), (int, float)) and isinstance(analysis_json.get("justification"), str):
-                    return analysis_json
-                else:
-                    print(f"Analysis JSON has incorrect types: {analysis_json}")
-                    return None
-            except json.JSONDecodeError:
-                print(f"Error parsing analysis JSON from content: {content_str}")
-                return None # Could attempt regex as fallback if needed
-        else:
-            print(f"Invalid analysis API response structure: {result}")
-            return None
-    except httpx.HTTPStatusError as e:
-        print(f"HTTP error during analysis API call for article '{article_details.get('title', 'N/A')}': {e} - {e.response.text if e.response else ''}")
-        return None
-    except httpx.RequestError as e:
-        print(f"Request error during analysis API call for article '{article_details.get('title', 'N/A')}': {e}")
+        response_data = await _make_openai_call(http_client, api_key, payload)
+        content_str = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+        analysis = _parse_llm_json_output(content_str)
+        if analysis and isinstance(analysis.get("score"), (int, float)) and isinstance(analysis.get("justification"), str):
+            return analysis
+        logger.warning(f"Invalid analysis format for authoritarianism: {analysis}")
         return None
     except Exception as e:
-        print(f"Unexpected error in analyze_article for '{article_details.get('title', 'N/A')}': {str(e)}")
+        logger.error(f"Error analyzing article for authoritarianism: {e}", exc_info=True)
         return None
 
-
-async def calculate_index() -> float:
-    """Calculate the current dictatorship index from all database entries."""
-    if db is None or db.articles is None:
-        return 0.0
-
-    # Using MongoDB aggregation to calculate average score directly in the database.
-    # This is more efficient for large datasets.
-    # It assumes 'score' field exists and is numeric.
-    # ArticleModel ensures 'score' is a float, so this should be safe.
+async def calculate_dictator_index() -> float:
+    if db is None: return 0.0
     pipeline = [
-        {"$match": {"score": {"$exists": True, "$type": "double"}}}, # Ensure score exists and is a double (float)
+        {"$match": {"score": {"$exists": True, "$type": "double"}}}, # Ensure score exists and is double
         {"$group": {"_id": None, "average_score": {"$avg": "$score"}, "count": {"$sum": 1}}}
     ]
-    
-    aggregation_result = await db.articles.aggregate(pipeline).to_list(length=1)
+    result = await db.articles.aggregate(pipeline).to_list(length=1)
+    return round(result[0]['average_score'], 1) if result and result[0].get('count',0) > 0 else 0.0
 
-    if aggregation_result and aggregation_result[0].get("count", 0) > 0:
-        avg_score = aggregation_result[0].get("average_score")
-        return round(avg_score, 1) if avg_score is not None else 0.0
-    else:
-        # Fallback or if no articles with valid scores found
-        # This also covers the case where the collection is empty.
-        return 0.0
-
-
-@app.get("/get_index")
+@app.get("/get_index") # Existing endpoint for Ditador Index
 async def get_index():
-    """Get the current dictatorship index and recent articles."""
-    if db is None:
-        return JSONResponse({"error": "Database not available. Check MongoDB connection."}, status_code=503)
+    if db is None: return JSONResponse({"error": "Database not available."}, status_code=503)
+    index_score = await calculate_dictator_index()
+    articles_cursor = db.articles.find().sort("analysis_date", -1).limit(20)
+    articles_list = [ArticleModel.model_validate(doc).model_dump(exclude_none=True) async for doc in articles_cursor]
+    return JSONResponse({"index_score": index_score, "articles": articles_list})
 
-    index_score = await calculate_index()
 
-    # Get articles from MongoDB, sorted by analysis_date descending, limit for display
-    # The index calculation uses ALL articles; this is just for display.
-    cursor = db.articles.find().sort("analysis_date", -1).limit(20)
-    articles_list = []
+# --- "Índice de Distopia" Logic ---
+@app.post("/crawl_dystopian_content")
+async def crawl_dystopian_content_endpoint(request: Request):
+    if db is None: return JSONResponse({"error": "Database not available."}, status_code=503)
+    req_data = await request.json()
+    api_key = req_data.get("apiKey") or DEFAULT_OPENAI_API_KEY
+    if not api_key: return JSONResponse({"error": "OpenAI API key is required."}, status_code=400)
 
-    async for doc_from_db in cursor:
+    processed_items_info = []
+    newly_added_count = 0
+
+    async with httpx.AsyncClient() as http_client:
+        # 1. Fetch News Articles for Dystopian Themes
+        news_prompt = f"Find {NUM_NEWS_DYSTOPIAN} recent news articles (last 7 days) discussing dystopian themes like mass surveillance, disinformation, loss of privacy, extreme social control, or unchecked AI. For each, provide title, source, URL, publication date (YYYY-MM-DD), and a brief summary. Format as a JSON array within a parent JSON object under the key 'news_articles'."
+        news_payload = {"model": MODEL_FOR_SEARCH, "messages": [{"role": "user", "content": news_prompt}], "response_format": {"type": "json_object"}}
+        
         try:
-            # Validate and structure data using Pydantic model
-            article_model = ArticleModel.model_validate(doc_from_db)
-            # Convert to dict for JSON response (ensure _id is str via PyObjectId)
-            articles_list.append(article_model.model_dump(exclude_none=True))
-        except ValidationError as e:
-            print(f"Data validation error for article from DB (ID: {doc_from_db.get('_id')}): {e}")
-            # Optionally skip or include a partial/error representation
+            news_search_data = await _make_openai_call(http_client, api_key, news_payload)
+            news_content_str = news_search_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+            dystopian_news_from_api = _parse_llm_json_output(news_content_str, {}).get("news_articles", [])
 
+            for news_item_api in dystopian_news_from_api:
+                url = news_item_api.get("url")
+                if not url or await db.dystopian_media_items.find_one({"content_identifier": url}):
+                    logger.info(f"Skipping dystopian news (no URL or duplicate): {news_item_api.get('title', 'N/A')}")
+                    continue
+                
+                analysis = await _analyze_media_for_dystopia(http_client, api_key, news_item_api, "Notícia Web")
+                if not analysis: continue
+
+                item_obj = DystopianMediaItemModel(
+                    platform="Notícia Web",
+                    content_identifier=url,
+                    title=news_item_api.get("title", "N/A"),
+                    content_text=news_item_api.get("summary", "N/A summary"),
+                    source_name=news_item_api.get("source", "N/A source"),
+                    publication_date=news_item_api.get("date", datetime.date.today().isoformat()),
+                    dystopian_score=float(analysis["dystopian_score"]),
+                    justification=analysis["justification"],
+                    themes_detected=analysis.get("themes_detected", []),
+                    analysis_date=datetime.datetime.now(datetime.timezone.utc).isoformat()
+                )
+                insert_result = await db.dystopian_media_items.insert_one(item_obj.model_dump(by_alias=True, exclude_none=True))
+                if insert_result.inserted_id:
+                    newly_added_count += 1
+                    response_item = item_obj.model_dump()
+                    response_item["id"] = str(insert_result.inserted_id)
+                    processed_items_info.append(response_item)
+        except Exception as e:
+            logger.error(f"Error fetching/processing dystopian news: {e}", exc_info=True)
+
+
+        # 2. Simulate Fetching "Tweets" for Dystopian Themes
+        sim_tweets_prompt = f"Generate {NUM_SIM_TWEETS_DYSTOPIAN} plausible, recent-sounding (last 7 days) example social media posts (like tweets) expressing concern or observations about dystopian societal trends (e.g., surveillance, AI ethics, censorship). For each, provide 'simulated_user' (string), 'post_text' (string), 'simulated_date' (string YYYY-MM-DD). Format as a JSON array within a parent JSON object under the key 'simulated_posts'."
+        sim_tweets_payload = {"model": MODEL_FOR_ANALYSIS, "messages": [{"role": "user", "content": sim_tweets_prompt}], "response_format": {"type": "json_object"}} # Use analysis model as it's good at generation
+        
+        try:
+            sim_tweets_data = await _make_openai_call(http_client, api_key, sim_tweets_payload)
+            sim_tweets_content_str = sim_tweets_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+            simulated_posts_from_api = _parse_llm_json_output(sim_tweets_content_str, {}).get("simulated_posts", [])
+
+            for post_data_api in simulated_posts_from_api:
+                post_text = post_data_api.get("post_text")
+                # Generate a unique identifier for simulated content
+                content_id = f"sim_post_{ObjectId()}" 
+                if not post_text or await db.dystopian_media_items.find_one({"content_identifier": content_id}): # Very unlikely to clash, but good practice
+                    logger.info(f"Skipping simulated post (no text or rare duplicate ID): {post_text[:50]}")
+                    continue
+
+                # Adapt post_data_api for analysis (it's already the content itself)
+                analysis_input = {
+                    "summary": post_text, # Use summary field for analysis prompt consistency
+                    "title": f"Simulated Post by {post_data_api.get('simulated_user', 'Unknown User')}"
+                }
+                analysis = await _analyze_media_for_dystopia(http_client, api_key, analysis_input, "Tweet Simulado")
+                if not analysis: continue
+                
+                item_obj = DystopianMediaItemModel(
+                    platform="Tweet Simulado",
+                    content_identifier=content_id,
+                    title=None, # No traditional title for a tweet
+                    content_text=post_text,
+                    source_name=post_data_api.get("simulated_user", "SimulatedUser"),
+                    publication_date=post_data_api.get("simulated_date", datetime.date.today().isoformat()),
+                    dystopian_score=float(analysis["dystopian_score"]),
+                    justification=analysis["justification"],
+                    themes_detected=analysis.get("themes_detected", []),
+                    analysis_date=datetime.datetime.now(datetime.timezone.utc).isoformat()
+                )
+                insert_result = await db.dystopian_media_items.insert_one(item_obj.model_dump(by_alias=True, exclude_none=True))
+                if insert_result.inserted_id:
+                    newly_added_count += 1
+                    response_item = item_obj.model_dump()
+                    response_item["id"] = str(insert_result.inserted_id)
+                    processed_items_info.append(response_item)
+        except Exception as e:
+            logger.error(f"Error generating/processing simulated dystopian posts: {e}", exc_info=True)
+
+    dystopia_index_score = await calculate_dystopia_index()
     return JSONResponse({
-        "index_score": index_score,
-        "articles": articles_list # This list uses Pydantic for structure
+        "success": True, "message": f"Dystopian Index crawl complete. {newly_added_count} new items added.",
+        "items_processed_this_crawl": processed_items_info, "dystopia_index_score": dystopia_index_score
     })
 
+async def _analyze_media_for_dystopia(http_client: httpx.AsyncClient, api_key: str, item_details: dict, platform_type: str) -> Optional[Dict]:
+    content_for_analysis = item_details.get('summary') or item_details.get('content_text') or item_details.get('post_text')
+    prompt = f"""You are a sociologist specializing in dystopian trends. Analyze the following media item from '{platform_type}':
+    Title/Identifier: {item_details.get('title', 'N/A')}
+    Content: {content_for_analysis}
+    Rate this item on a scale of 0-10 for dystopian indicators (0=none, 10=strong).
+    Criteria: surveillance, disinformation, loss of privacy, social control, suppression of freedom, unchecked tech power, extreme polarization, erosion of rights.
+    Provide your score, a brief justification (1-2 sentences), and up to 3 main themes detected.
+    Respond with JSON: {{"dystopian_score": <number>, "justification": "<string>", "themes_detected": ["<theme1>", "<theme2>"]}}"""
+    
+    payload = {"model": MODEL_FOR_ANALYSIS, "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}, "max_tokens": MAX_TOKENS_FOR_ANALYSIS}
+    
+    try:
+        response_data = await _make_openai_call(http_client, api_key, payload)
+        content_str = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+        analysis = _parse_llm_json_output(content_str)
+        if (analysis and isinstance(analysis.get("dystopian_score"), (int, float)) and
+            isinstance(analysis.get("justification"), str) and isinstance(analysis.get("themes_detected"), list)):
+            return analysis
+        logger.warning(f"Invalid analysis format for dystopia: {analysis}")
+        return None
+    except Exception as e:
+        logger.error(f"Error analyzing media for dystopia: {e}", exc_info=True)
+        return None
 
+async def calculate_dystopia_index() -> float:
+    if db is None: return 0.0
+    pipeline = [
+        {"$match": {"dystopian_score": {"$exists": True, "$type": "double"}}},
+        {"$group": {"_id": None, "average_score": {"$avg": "$dystopian_score"}, "count": {"$sum": 1}}}
+    ]
+    result = await db.dystopian_media_items.aggregate(pipeline).to_list(length=1)
+    return round(result[0]['average_score'], 1) if result and result[0].get('count',0) > 0 else 0.0
+
+@app.get("/get_dystopia_index_data")
+async def get_dystopia_index_data_endpoint():
+    if db is None: return JSONResponse({"error": "Database not available."}, status_code=503)
+    index_score = await calculate_dystopia_index()
+    items_cursor = db.dystopian_media_items.find().sort("analysis_date", -1).limit(20)
+    items_list = [DystopianMediaItemModel.model_validate(doc).model_dump(exclude_none=True) async for doc in items_cursor]
+    return JSONResponse({"dystopia_index_score": index_score, "items": items_list})
+
+# --- Root and Static Files ---
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    static_html_path = "static/index.html"
+    if os.path.exists(static_html_path):
+        with open(static_html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Índice de Ditador & Distopia</h1><p>Error: Main index.html not found in /static directory.</p>", status_code=404)
+
+# --- Main Execution ---
 if __name__ == "__main__":
     import uvicorn
-    # Ensure 'static' directory exists for StaticFiles
-    if not os.path.exists("static"):
-        os.makedirs("static", exist_ok=True)
-        print("Created 'static' directory as it was missing.")
-        # You might want to create a placeholder index.html if it's also missing
-        if not os.path.exists("static/index.html"):
-            with open("static/index.html", "w", encoding="utf-8") as f:
-                f.write("<h1>Índice de Ditador</h1><p>Frontend not fully initialized. Please add content to static/index.html.</p>")
-            print("Created placeholder 'static/index.html'.")
-
+    logger.info("Starting Uvicorn server...")
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
