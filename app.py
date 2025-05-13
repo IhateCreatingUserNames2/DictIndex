@@ -199,8 +199,8 @@ async def crawl_news(request: Request):
     prompt_content = f"Find {NUM_ARTICLES_TO_FETCH_DITADOR} recent news articles (last 7 days) about Donald Trump that might relate to democratic institutions, checks and balances, or authoritarian tendencies. For each article, provide title, source, URL, publication date (YYYY-MM-DD), and a brief summary. Format your response as a JSON object with a single key 'articles' which contains an array of these article objects."
     search_payload = {
         "model": MODEL_FOR_SEARCH,
-        "messages": [{"role": "user", "content": prompt_content}],
-        "response_format": {"type": "json_object"}
+        "messages": [{"role": "user", "content": prompt_content}]
+   
     }
     
     processed_articles_info = []
