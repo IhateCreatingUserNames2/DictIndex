@@ -24,7 +24,7 @@ MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017/indice_ditador
 DEFAULT_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Model for search/summary tasks (can be cheaper if available with search)
-MODEL_FOR_SEARCH = "gpt-4o-search-preview" # Or "gpt-4o" if using a generic search prompt
+MODEL_FOR_SEARCH = "gpt-4o-mini-search-preview-2025-03-11" # Or "gpt-4o" if using a generic search prompt
 # Model for detailed analysis (prioritize quality)
 MODEL_FOR_ANALYSIS = "gpt-4.1-nano-2025-04-14"
 
