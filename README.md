@@ -1,5 +1,15 @@
 # Índice de Ditador
 DEMO: https://dictindex.onrender.com/
+
+
+--- Changelog: 
+--- Adicionado Indice de Distopia
+--- Mudança de modelos para modelos mais baratos (10x mais barato) 
+--- Adicionado Check contra Duplicate
+
+![image](https://github.com/user-attachments/assets/e73d8ffc-24c9-4244-8145-7d26bc317b76)
+![image](https://github.com/user-attachments/assets/8c8fb28c-fa47-4fbe-8d67-4b45fa8b70f1)
+
 ####
 Um site que monitora e analisa notícias relacionadas a Donald Trump para avaliar possíveis tendências autoritárias e gerar um índice de autoritarismo com base nessas análises.
 
