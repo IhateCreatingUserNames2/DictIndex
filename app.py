@@ -232,7 +232,6 @@ async def crawl_news(request: Request):
     search_payload = {
         "model": MODEL_FOR_SEARCH,
         "messages": [{"role": "user", "content": prompt_content}],
-        "temperature": 0.3,  # Lower temperature for more consistent results
         "max_tokens": 4000  # Ensure enough tokens for multiple articles
     }
     
