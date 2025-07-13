@@ -197,11 +197,43 @@ async def crawl_news(request: Request):
     api_key = req_data.get("apiKey") or DEFAULT_OPENAI_API_KEY
     if not api_key: return JSONResponse({"error": "OpenAI API key is required."}, status_code=400)
 
-    prompt_content = f"Find {NUM_ARTICLES_TO_FETCH_DITADOR} recent news articles (last 7 days) about Donald Trump that might relate to democratic institutions, checks and balances, or authoritarian tendencies. For each article, provide title, source, URL, publication date (YYYY-MM-DD), and a brief summary. Format your response as a JSON object with a single key 'articles' which contains an array of these article objects."
+    # Enhanced prompt with multiple search strategies
+    prompt_content = f"""Find {NUM_ARTICLES_TO_FETCH_DITADOR} recent news articles about Donald Trump from the last 30 days that relate to any of the following:
+    
+    1. Democratic institutions, checks and balances, or authoritarian tendencies
+    2. Executive orders or presidential powers
+    3. Relationships with courts, Congress, or the media
+    4. Political rhetoric about opponents or critics
+    5. Policy decisions affecting democratic norms
+    6. Statements about elections or voting
+    7. Use of government agencies or departments
+    
+    Include articles from major news sources like:
+    - The New York Times
+    - The Washington Post
+    - CNN
+    - BBC
+    - Reuters
+    - Associated Press
+    - Politico
+    - The Guardian
+    
+    For each article, provide:
+    - title: exact headline
+    - source: publication name
+    - url: full URL
+    - date: publication date in YYYY-MM-DD format
+    - summary: 2-3 sentence summary focusing on democratic/authoritarian aspects
+    
+    Format your response as a JSON object with a single key 'articles' containing an array of article objects.
+    
+    Focus on factual reporting rather than opinion pieces."""
+
     search_payload = {
         "model": MODEL_FOR_SEARCH,
-        "messages": [{"role": "user", "content": prompt_content}]
-        # `response_format` is intentionally removed for search models that might use web_search
+        "messages": [{"role": "user", "content": prompt_content}],
+        "temperature": 0.3,  # Lower temperature for more consistent results
+        "max_tokens": 4000  # Ensure enough tokens for multiple articles
     }
     
     processed_articles_info = []
