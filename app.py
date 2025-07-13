@@ -34,9 +34,9 @@ DEFAULT_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MODEL_FOR_SEARCH = os.getenv("MODEL_FOR_SEARCH", "gpt-4o-mini-search-preview-2025-03-11") # Or your chosen search model
 MODEL_FOR_ANALYSIS = os.getenv("MODEL_FOR_ANALYSIS", "gpt-4.1-nano-2025-04-14")        # Or your chosen analysis model
 
-NUM_ARTICLES_TO_FETCH_DITADOR = int(os.getenv("NUM_ARTICLES_TO_FETCH_DITADOR", 3))
+NUM_ARTICLES_TO_FETCH_DITADOR = int(os.getenv("NUM_ARTICLES_TO_FETCH_DITADOR", 20))
 NUM_NEWS_DYSTOPIAN = int(os.getenv("NUM_NEWS_DYSTOPIAN", 2))
-NUM_SIM_TWEETS_DYSTOPIAN = int(os.getenv("NUM_SIM_TWEETS_DYSTOPIAN", 2))
+NUM_SIM_TWEETS_DYSTOPIAN = int(os.getenv("NUM_SIM_TWEETS_DYSTOPIAN", 0))
 MAX_TOKENS_FOR_ANALYSIS = int(os.getenv("MAX_TOKENS_FOR_ANALYSIS", 250))
 
 # --- FastAPI Initialization ---
